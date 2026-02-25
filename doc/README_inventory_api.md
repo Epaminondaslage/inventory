@@ -16,24 +16,20 @@ O módulo é composto por:
 -   `inventory_agent.php` → API local que expõe o inventário em formato
     JSON via HTTP
 
-Esse mecanismo permite:
-
-Foi criado para gerar um relatório
-completo do ambiente de hardware e sistema operacional de cada servidor
-da infraestrutura do projeto.
+Foi criado para gerar um relatório completo do ambiente de hardware e sistema operacional de cada servidor da infraestrutura do projeto.
 
 Ele permite:
 
--   Mapear capacidades físicas\
--   Documentar arquitetura\
--   Identificar recursos disponíveis (CPU, RAM, GPU, disco)\
--   Detectar virtualização\
--   Registrar versão do sistema\
--   Padronizar auditoria da infraestrutura
+- Mapear capacidades físicas
+- Documentar arquitetura
+- Identificar recursos disponíveis (CPU, RAM, GPU, disco)
+- Detectar virtualização
+- Registrar versão do sistema
+- Padronizar auditoria da infraestrutura
 ------------------------------------------------------------------------
 ## 2.  Informações Coletadas
 
-O script sh e o php  geram um JSON contendo  um relatório estruturado contendo:
+O script sh e o php geram um JSON contendo um relatório estruturado com:
 
 ### 🔹 Identificação do Sistema
 
@@ -108,7 +104,7 @@ Essa organização permite expansão futura para:
 
 ------------------------------------------------------------------------
 
-## 3. inventory.sh
+## 4. inventory.sh
 
 ### Função
 
@@ -137,7 +133,7 @@ chmod +x /var/www/html/api/inventory/inventory.sh
 
 ------------------------------------------------------------------------
 
-## 4. inventory_agent.php
+## 5. inventory_agent.php
 
 ### Função
 
@@ -244,8 +240,8 @@ Recomenda-se:
 
 ## 12. Permissões Recomendadas
 
-    sudo chown www-data:www-data /var/www/html/api/inventory -R
-    sudo chmod 750 /var/www/html/api/inventory
+sudo chown www-data:www-data /var/www/html/api/inventory -R
+sudo chmod 750 /var/www/html/api/inventory
 
 ------------------------------------------------------------------------
 

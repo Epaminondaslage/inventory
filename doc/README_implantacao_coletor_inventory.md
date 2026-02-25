@@ -18,6 +18,7 @@ O coletor é responsável por:
 -   Detectar servidores online/offline
 -   Medir tempo de resposta
 -   Retornar um JSON unificado
+-   Servindo como camada intermediária entre os agentes e o painel web
 
 ------------------------------------------------------------------------
 

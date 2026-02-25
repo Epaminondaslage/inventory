@@ -17,6 +17,8 @@ O painel consome os dados do coletor central:
 
     /api/inventory_central/inventory_collector.php
 
+    Servidor central padrão: 10.0.0.5)
+
 E apresenta:
 
 -   Lista consolidada de servidores
@@ -55,7 +57,7 @@ E apresenta:
   Coluna       Descrição
   ------------ ---------------------------------
   IP           Endereço do servidor
-  Status       Badge visual (ONLINE / OFFLINE)
+  Status       Badge visual (ONLINE / OFFLINE) com indicador gráfico
   Hostname     Nome do host
   Tempo (ms)   Tempo de resposta do agente
   Detalhes     Botão para abrir RAW completo
@@ -80,10 +82,11 @@ Implementado com:
 O modal:
 
 -   Abre ao clicar em "Ver RAW"
--   Mostra todos os blocos `_raw`
--   Preserva quebras de linha
--   Fecha com botão X
--   Fecha clicando fora
+- Mostra todos os blocos _raw
+- Preserva quebras de linha
+- Fecha com botão X
+- Fecha clicando fora
+- Largura padrão de 60% da tela
 
 ------------------------------------------------------------------------
 
@@ -96,9 +99,9 @@ O CSS está dividido em:
 -   Reset básico
 -   Container
 -   Header centralizado
--   Tabela
+-   Tabela (70% da largura da página)
 -   Badges
--   Modal
+-   Modal (60% da largura da página)
 -   Responsividade
 
 ### 4.2 Header
@@ -115,6 +118,7 @@ Centralizado verticalmente:
 -   Centralizada
 -   Cabeçalho preto
 -   Linhas com cores diferenciadas
+-   Colunas Status, Hostname, Tempo e Detalhes centralizadas
 
 ### 4.4 Badges
 
@@ -157,6 +161,7 @@ Centralizado verticalmente:
 -   Coletor central funcional
 -   Permissões corretas (www-data)
 -   SSH/SFTP configurado para deploy
+-   Agentes de inventário ativos e acessíveis via rede interna
 
 ------------------------------------------------------------------------
 
