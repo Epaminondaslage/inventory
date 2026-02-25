@@ -30,7 +30,7 @@ Este README documenta a estrutura recomendada, o fluxo operacional e a arquitetu
 
 -  [Módulo de Inventário de Infraestrutura](README_inventory_api.md)
 -  [Implantação do Coletor Central de Inventário](README_implantacao_coletor_inventory.md)
--  [Painel Inventário de Servidores](README_aplicacao_inventario_servidores.md)
+-  [Painel Inventário de Servidores](Painel_inventario_servidores.md)
 
 ------------------------------------------------------------------------
 
@@ -72,7 +72,7 @@ Essa organização permite expansão futura:
 
 ## 4. Fluxo de Funcionamento
 
-<img src="img/logo_fluxo.jpg" alt="fluxo" >
+<img src="img/fluxo.jpg" alt="fluxo" >
 
 1.  Servidor central consulta agente.
 2.  Agente valida token.
