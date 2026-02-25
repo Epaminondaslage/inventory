@@ -72,7 +72,7 @@ Essa organização permite expansão futura:
 
 ## 4. Fluxo de Funcionamento
 
-<img src="img/fluxo.jpg" alt="fluxo" >
+<img src="img/fluxo.jpg" alt="fluxo" width="50%">
 
 1.  Servidor central consulta agente.
 2.  Agente valida token.
