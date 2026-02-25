@@ -1,150 +1,157 @@
-# 📄 inventory.sh --- Script de Inventário de Hardware
+# Sentinela - Módulo de Inventário de Infraestrutura
 
-**Gerado em:** 2026-02-25 11:41:21
-
-------------------------------------------------------------------------
-
-## 📌 Objetivo
-
-O `inventory.sh` é um script em Shell criado para gerar um relatório
-completo do ambiente de hardware e sistema operacional de cada servidor
-da infraestrutura do projeto.
-
-Ele permite:
-
--   Mapear capacidades físicas\
--   Documentar arquitetura\
--   Identificar recursos disponíveis (CPU, RAM, GPU, disco)\
--   Detectar virtualização\
--   Registrar versão do sistema\
--   Padronizar auditoria da infraestrutura
+**Data de geração:** 2026-02-25 11:53:20
 
 ------------------------------------------------------------------------
 
-## 🧠 Finalidade no Projeto
+## 1. Objetivo
 
-No contexto do projeto **Sentinela**, o script é utilizado para:
+Este documento descreve a implementação do módulo de inventário de
+hardware da infraestrutura do projeto Sentinela.
 
--   Classificar servidores por função (Core, IA, Transporte, Dados)\
--   Avaliar viabilidade de execução de modelos de IA\
--   Documentar capacidade de processamento\
--   Apoiar decisões arquiteturais\
--   Criar histórico técnico da infraestrutura
+O módulo é composto por:
 
-------------------------------------------------------------------------
+-   `inventory.sh` → Script shell que coleta informações estruturadas do
+    sistema
+-   `inventory_agent.php` → API local que expõe o inventário em formato
+    JSON via HTTP
 
-## ⚙️ Informações Coletadas
+Esse mecanismo permite:
 
-O script gera um relatório estruturado contendo:
-
-### 🔹 Identificação do Sistema
-
--   Hostname\
--   Data e hora\
--   Kernel\
--   Arquitetura\
--   Distribuição Linux
-
-### 🔹 CPU
-
--   Modelo\
--   Arquitetura\
--   Número de núcleos\
--   Frequência\
--   Cache
-
-### 🔹 Memória
-
--   RAM total\
--   RAM disponível\
--   Swap
-
-### 🔹 Armazenamento
-
--   Discos físicos\
--   Partições\
--   Pontos de montagem
-
-### 🔹 Dispositivos PCI
-
--   Controladores\
--   Placas de rede\
--   GPU (se houver)
-
-### 🔹 GPU
-
--   Dispositivos NVIDIA\
--   Execução de `nvidia-smi` (se disponível)
-
-### 🔹 Rede
-
--   Interfaces\
--   Endereços IP
-
-### 🔹 Virtualização
-
--   Detecta se é VM ou bare metal
-
-### 🔹 Docker
-
--   Versão instalada\
--   Storage driver\
--   Cgroup driver
+-   Coleta remota de informações
+-   Consolidação centralizada
+-   Auditoria da infraestrutura
+-   Classificação automática de servidores
 
 ------------------------------------------------------------------------
 
-## 📂 Saída
+## 2. Estrutura Padronizada de Diretórios
 
-O script gera automaticamente um arquivo de log no formato:
+Recomenda-se utilizar a seguinte estrutura:
 
-    hw_inventory_<hostname>_<timestamp>.log
+    /var/www/html/api/inventory/
+        ├── inventory.sh
+        ├── inventory_agent.php
 
-Exemplo:
+Essa organização permite expansão futura para:
 
-    hw_inventory_mqtt_2026-02-25_08-35-48.log
-
-Isso permite:
-
--   Organização por máquina\
--   Versionamento histórico\
--   Comparação entre servidores
+    /api/sentinela/
+    /api/decision/
+    /api/mqtt/
 
 ------------------------------------------------------------------------
 
-## ▶️ Execução
+## 3. inventory.sh
+
+### Função
+
+Script responsável por gerar um JSON estruturado contendo:
+
+-   Hostname
+-   Timestamp
+-   Kernel
+-   Arquitetura
+-   Sistema operacional
+-   CPU (modelo, núcleos, frequência)
+-   Memória total e disponível
+-   Disco raiz
+-   GPU (detecção NVIDIA)
+-   Docker (instalação e versão)
+-   IP principal
+-   Virtualização
+
+### Permissões
+
+Após criar o arquivo:
 
 ``` bash
-chmod +x inventory.sh
-./inventory.sh
+chmod +x /var/www/html/api/inventory/inventory.sh
 ```
 
 ------------------------------------------------------------------------
 
-## 🛠 Requisitos
+## 4. inventory_agent.php
 
--   Sistema Linux\
--   Utilitários padrão (`lscpu`, `lsblk`, `lspci`, `free`, `ip`)\
--   Permissões normais de usuário (não requer root)
+### Função
+
+Expor o inventário via endpoint HTTP protegido.
+
+### Endpoint
+
+    http://IP_DO_SERVIDOR/api/inventory/inventory_agent.php
+
+### Autenticação
+
+Recomenda-se utilizar header Authorization:
+
+    Authorization: Bearer SEU_TOKEN
+
+Exemplo:
+
+``` bash
+curl -H "Authorization: Bearer sentinela_token_123" http://10.0.0.141/api/inventory/inventory_agent.php
+```
+
+Fallback via GET (opcional):
+
+``` bash
+curl "http://10.0.0.141/api/inventory/inventory_agent.php?token=sentinela_token_123"
+```
 
 ------------------------------------------------------------------------
 
-## 🎯 Benefícios Técnicos
+## 5. Segurança
 
--   Padroniza documentação da infraestrutura\
--   Facilita troubleshooting\
--   Apoia decisões de implantação de IA\
--   Garante rastreabilidade técnica\
--   Permite auditoria de capacidade
+O agente possui:
+
+-   Validação de token
+-   Restrição opcional por IP interno
+-   Execução via caminho absoluto
+-   Validação de JSON antes de resposta
+
+Recomenda-se:
+
+-   Alterar o token padrão
+-   Permitir acesso apenas pela rede interna
+-   Não expor para internet pública
 
 ------------------------------------------------------------------------
 
-## 🔒 Observação de Segurança
+## 6. Permissões Recomendadas
 
-O script não coleta:
+    sudo chown www-data:www-data /var/www/html/api/inventory -R
+    sudo chmod 750 /var/www/html/api/inventory
 
--   Senhas\
--   Tokens\
--   Conteúdo de arquivos\
--   Configurações sensíveis
+------------------------------------------------------------------------
 
-Ele registra apenas metadados estruturais do sistema.
+## 7. Fluxo de Funcionamento
+
+1.  Servidor central envia requisição HTTP ao agente.
+2.  Agente valida token e IP.
+3.  Executa `inventory.sh`.
+4.  Retorna JSON estruturado.
+5.  Servidor central armazena e consolida dados.
+
+------------------------------------------------------------------------
+
+## 8. Benefícios Arquiteturais
+
+-   Padronização da documentação de hardware
+-   Base para painel consolidado
+-   Histórico de mudanças de infraestrutura
+-   Classificação automática de servidores
+-   Integração futura com núcleo do Sentinela
+
+------------------------------------------------------------------------
+
+## 9. Próximos Passos Recomendados
+
+-   Implementar coletor central com banco de dados
+-   Criar painel web consolidado
+-   Implementar versionamento histórico
+-   Implementar assinatura HMAC para autenticação avançada
+
+------------------------------------------------------------------------
+
+**Módulo integrante da arquitetura Sentinela - Monitoramento de
+Infraestrutura**
