@@ -6,152 +6,98 @@
 
 ## 1. Objetivo
 
-Este documento descreve a implementação do módulo de inventário de
-hardware da infraestrutura do projeto Sentinela.
 
-O módulo é composto por:
+Este documento tem como objetivo descrever a arquitetura, organização, fluxo de funcionamento e padrões de implantação do módulo Inventário de Servidores, integrante da arquitetura Sentinela – Monitoramento de Infraestrutura.
 
--   `inventory.sh` → Script shell que coleta informações estruturadas do
-    sistema
--   `inventory_agent.php` → API local que expõe o inventário em formato
-    JSON via HTTP
+O módulo foi projetado para:
 
-Esse mecanismo permite:
+- Padronizar a coleta de informações de hardware e sistema operacional em múltiplos servidores.
+- Disponibilizar os dados via API segura (agente local).
+- Consolidar as informações em um servidor central.
+- Apresentar os dados de forma visual, organizada e responsiva através de um painel web.
+- Permitir expansão futura dentro do ecossistema Sentinela.
+- Garantir segurança, isolamento por rede interna e controle de acesso via token.
 
--   Coleta remota de informações
--   Consolidação centralizada
--   Auditoria da infraestrutura
--   Classificação automática de servidores
+O Inventário de Servidores estabelece a base estrutural para monitoramento contínuo da infraestrutura, servindo como camada inicial para futuras integrações com:
+
+- módulos de decisão automatizada, integração MQTT e dashboards executivos.
+
+Este README documenta a estrutura recomendada, o fluxo operacional e a arquitetura técnica necessária para implantação, manutenção e expansão do módulo.
 
 ------------------------------------------------------------------------
 
-## 2. Estrutura Padronizada de Diretórios
+## 2. Índice de documentação
 
-Recomenda-se utilizar a seguinte estrutura:
+-  [Módulo de Inventário de Infraestrutura](README_inventory_api.md)
+-  [Implantação do Coletor Central de Inventário](README_implantacao_coletor_inventory.md)
+-  [Painel Inventário de Servidores](README_aplicacao_inventario_servidores.md)
+
+------------------------------------------------------------------------
+
+
+## 3. Estrutura Padronizada de Diretórios
+
+Recomenda-se utilizar a seguinte estrutura no servidor agente
+(monitorado):
 
     /var/www/html/api/inventory/
         ├── inventory.sh
         ├── inventory_agent.php
 
-Essa organização permite expansão futura para:
+Servidor coletor central (ex: 10.0.0.5):
+
+    /var/www/html/api/inventory_central/
+        ├── inventory_collector.php
+
+Painel web (frontend):
+
+    /var/www/html/inventory/
+        ├── index.php
+        ├── css/
+        │   └── style.css
+        └── img/
+            └── logo_inventory.jpg
+
+Essa organização permite expansão futura:
 
     /api/sentinela/
     /api/decision/
     /api/mqtt/
+    /inventory/dashboard/
+    /inventory/history/
+
+
 
 ------------------------------------------------------------------------
 
-## 3. inventory.sh
+## 4. Fluxo de Funcionamento
 
-### Função
+<img src="img/logo_fluxo.jpg" alt="fluxo" >
 
-Script responsável por gerar um JSON estruturado contendo:
-
--   Hostname
--   Timestamp
--   Kernel
--   Arquitetura
--   Sistema operacional
--   CPU (modelo, núcleos, frequência)
--   Memória total e disponível
--   Disco raiz
--   GPU (detecção NVIDIA)
--   Docker (instalação e versão)
--   IP principal
--   Virtualização
-
-### Permissões
-
-Após criar o arquivo:
-
-``` bash
-chmod +x /var/www/html/api/inventory/inventory.sh
-```
+1.  Servidor central consulta agente.
+2.  Agente valida token.
+3.  inventory.sh é executado.
+4.  JSON é retornado.
+5.  Coletor consolida dados.
+6.  index.php apresenta visualmente.
 
 ------------------------------------------------------------------------
 
-## 4. inventory_agent.php
+## 5. Arquitetura
 
-### Função
-
-Expor o inventário via endpoint HTTP protegido.
-
-### Endpoint
-
-    http://IP_DO_SERVIDOR/api/inventory/inventory_agent.php
-
-### Autenticação
-
-Recomenda-se utilizar header Authorization:
-
-    Authorization: Bearer SEU_TOKEN
-
-Exemplo:
-
-``` bash
-curl -H "Authorization: Bearer sentinela_token_123" http://10.0.0.141/api/inventory/inventory_agent.php
-```
-
-Fallback via GET (opcional):
-
-``` bash
-curl "http://10.0.0.141/api/inventory/inventory_agent.php?token=sentinela_token_123"
-```
+    AGENTES (141, 139, etc.)
+            ↓
+    inventory_agent.php
+            ↓
+    COLETOR CENTRAL (10.0.0.5)
+            ↓
+    inventory_collector.php
+            ↓
+    PAINEL WEB
+            ↓
+    index.php + CSS + Modal RAW
 
 ------------------------------------------------------------------------
 
-## 5. Segurança
 
-O agente possui:
-
--   Validação de token
--   Restrição opcional por IP interno
--   Execução via caminho absoluto
--   Validação de JSON antes de resposta
-
-Recomenda-se:
-
--   Alterar o token padrão
--   Permitir acesso apenas pela rede interna
--   Não expor para internet pública
-
-------------------------------------------------------------------------
-
-## 6. Permissões Recomendadas
-
-    sudo chown www-data:www-data /var/www/html/api/inventory -R
-    sudo chmod 750 /var/www/html/api/inventory
-
-------------------------------------------------------------------------
-
-## 7. Fluxo de Funcionamento
-
-1.  Servidor central envia requisição HTTP ao agente.
-2.  Agente valida token e IP.
-3.  Executa `inventory.sh`.
-4.  Retorna JSON estruturado.
-5.  Servidor central armazena e consolida dados.
-
-------------------------------------------------------------------------
-
-## 8. Benefícios Arquiteturais
-
--   Padronização da documentação de hardware
--   Base para painel consolidado
--   Histórico de mudanças de infraestrutura
--   Classificação automática de servidores
--   Integração futura com núcleo do Sentinela
-
-------------------------------------------------------------------------
-
-## 9. Próximos Passos Recomendados
-
--   Implementar coletor central com banco de dados
--   Criar painel web consolidado
--   Implementar versionamento histórico
--   Implementar assinatura HMAC para autenticação avançada
-
-------------------------------------------------------------------------
-
-**Módulo integrante da arquitetura Sentinela - Monitoramento de
-Infraestrutura**
+**Módulo integrante da arquitetura Sentinela - Monitoramento de Infraestrutura**

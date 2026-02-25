@@ -18,14 +18,81 @@ O módulo é composto por:
 
 Esse mecanismo permite:
 
--   Coleta remota de informações
--   Consolidação centralizada
--   Auditoria da infraestrutura
--   Classificação automática de servidores
+Foi criado para gerar um relatório
+completo do ambiente de hardware e sistema operacional de cada servidor
+da infraestrutura do projeto.
 
+Ele permite:
+
+-   Mapear capacidades físicas\
+-   Documentar arquitetura\
+-   Identificar recursos disponíveis (CPU, RAM, GPU, disco)\
+-   Detectar virtualização\
+-   Registrar versão do sistema\
+-   Padronizar auditoria da infraestrutura
 ------------------------------------------------------------------------
+## 2.  Informações Coletadas
 
-## 2. Estrutura Padronizada de Diretórios
+O script sh e o php  geram um JSON contendo  um relatório estruturado contendo:
+
+### 🔹 Identificação do Sistema
+
+-   Hostname\
+-   Data e hora\
+-   Kernel\
+-   Arquitetura\
+-   Distribuição Linux
+
+### 🔹 CPU
+
+-   Modelo\
+-   Arquitetura\
+-   Número de núcleos\
+-   Frequência\
+-   Cache
+
+### 🔹 Memória
+
+-   RAM total\
+-   RAM disponível\
+-   Swap
+
+### 🔹 Armazenamento
+
+-   Discos físicos\
+-   Partições\
+-   Pontos de montagem
+
+### 🔹 Dispositivos PCI
+
+-   Controladores\
+-   Placas de rede\
+-   GPU (se houver)
+
+### 🔹 GPU
+
+-   Dispositivos NVIDIA\
+-   Execução de `nvidia-smi` (se disponível)
+
+### 🔹 Rede
+
+-   Interfaces\
+-   Endereços IP
+
+### 🔹 Virtualização
+
+-   Detecta se é VM ou bare metal
+
+### 🔹 Docker
+
+-   Versão instalada\
+-   Storage driver\
+-   Cgroup driver
+
+--------------
+
+
+## 3. Estrutura Padronizada de Diretórios
 
 Recomenda-se utilizar a seguinte estrutura:
 
@@ -99,8 +166,66 @@ curl "http://10.0.0.141/api/inventory/inventory_agent.php?token=sentinela_token_
 ```
 
 ------------------------------------------------------------------------
+## 6. Teste do Script Local
 
-## 5. Segurança
+Executar diretamente:
+
+``` bash
+cd /var/www/html/api/inventory
+./inventory.sh
+```
+
+O retorno deve ser um JSON iniciando com:
+
+    {
+      "hostname": "..."
+
+------------------------------------------------------------------------
+
+## 7. Teste do Endpoint HTTP Local
+
+No próprio servidor:
+
+``` bash
+curl -H "Authorization: Bearer sentinela_token_123" http://localhost/api/inventory/inventory_agent.php
+```
+
+Se estiver correto, o retorno será o mesmo JSON do script.
+
+------------------------------------------------------------------------
+
+## 8. Teste Remoto
+
+De outro servidor da rede:
+
+``` bash
+curl -H "Authorization: Bearer sentinela_token_123" http://IP_DO_SERVIDOR/api/inventory/inventory_agent.php
+```
+
+------------------------------------------------------------------------
+
+## 9. Validação de Funcionamento
+
+O agente está corretamente implantado se:
+
+-   O script executa sem erro
+-   O endpoint retorna JSON válido
+-   O token é validado corretamente
+-   O acesso externo não autorizado é bloqueado
+
+------------------------------------------------------------------------
+
+## 10. Resultado
+
+Após esta etapa, o servidor passa a atuar como:
+
+Agente de Inventário Sentinela
+
+Pronto para ser consultado pelo coletor central.
+
+------------------------------------------------------------------------
+
+## 11. Segurança
 
 O agente possui:
 
@@ -117,14 +242,14 @@ Recomenda-se:
 
 ------------------------------------------------------------------------
 
-## 6. Permissões Recomendadas
+## 12. Permissões Recomendadas
 
     sudo chown www-data:www-data /var/www/html/api/inventory -R
     sudo chmod 750 /var/www/html/api/inventory
 
 ------------------------------------------------------------------------
 
-## 7. Fluxo de Funcionamento
+## 13. Fluxo de Funcionamento
 
 1.  Servidor central envia requisição HTTP ao agente.
 2.  Agente valida token e IP.
@@ -134,24 +259,3 @@ Recomenda-se:
 
 ------------------------------------------------------------------------
 
-## 8. Benefícios Arquiteturais
-
--   Padronização da documentação de hardware
--   Base para painel consolidado
--   Histórico de mudanças de infraestrutura
--   Classificação automática de servidores
--   Integração futura com núcleo do Sentinela
-
-------------------------------------------------------------------------
-
-## 9. Próximos Passos Recomendados
-
--   Implementar coletor central com banco de dados
--   Criar painel web consolidado
--   Implementar versionamento histórico
--   Implementar assinatura HMAC para autenticação avançada
-
-------------------------------------------------------------------------
-
-**Módulo integrante da arquitetura Sentinela - Monitoramento de
-Infraestrutura**
