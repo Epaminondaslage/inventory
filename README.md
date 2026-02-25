@@ -30,7 +30,7 @@ Este README documenta a estrutura recomendada, o fluxo operacional e a arquitetu
 
 -  [Módulo de Inventário de Infraestrutura](doc/README_inventory_api.md)
 -  [Implantação do Coletor Central de Inventário](doc/README_implantacao_coletor_inventory.md)
--  [Painel Inventário de Servidores](doc/Painel_inventario_servidores.md)
+-  [Painel Inventário de Servidores](README_Painel_Inventario_Servidores.md)
 
 ------------------------------------------------------------------------
 
