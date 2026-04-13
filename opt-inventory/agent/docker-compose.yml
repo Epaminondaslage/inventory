@@ -1,0 +1,47 @@
+
+services:
+  inventory-agent:
+    build: .
+    container_name: inventory-agent
+
+    # Expose the agent on port 8090 of the host while keeping Apache on port 80 inside the container
+    ports:
+      - "8090:80"
+
+    # Always restart the agent if it exits
+    restart: always
+
+    # Mount host resources read-only for accurate inventory collection
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/os-release:ro
+      - /etc/hostname:/host/etc/hostname:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts:/scripts:ro
+
+    # Environment variables used by the inventory script to locate host paths
+    environment:
+      - HOST_PROC=/host/proc
+      - HOST_SYS=/host/sys
+
+    # Enable read-only root filesystem for security
+    read_only: true
+
+    # Provide temporary writable locations required by Apache and the OS
+    tmpfs:
+      - /tmp
+      - /var/run
+      - /var/run/apache2
+      - /var/lock
+
+    # Drop additional privileges in the container
+    security_opt:
+      - no-new-privileges:true
+
+    # Health check to verify the agent's HTTP endpoint is responding
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -H 'Authorization: Bearer sentinela_token_123' http://localhost/api/inventory_agent.php > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
