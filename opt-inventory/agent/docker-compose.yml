@@ -1,4 +1,5 @@
 
+
 services:
   inventory-agent:
     build: .
@@ -45,3 +46,23 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: sentinela-swagger
+
+    # Expose Swagger UI on port 8091
+    ports:
+      - "8091:8080"
+
+    # Always restart Swagger UI if it exits
+    restart: always
+
+    # Load OpenAPI specification from local file
+    environment:
+      - SWAGGER_JSON=/app/openapi.yaml
+
+    # Mount OpenAPI spec into container
+    volumes:
+      - ./api/openapi.yaml:/app/openapi.yaml:ro

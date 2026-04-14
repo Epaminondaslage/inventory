@@ -31,6 +31,16 @@ RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 COPY api/ /var/www/html/api/
 
 # ================================
+# Copia OpenAPI (para Swagger)
+# ================================
+COPY api/openapi.yaml /var/www/html/openapi.yaml
+
+# ================================
+# Copia Swagger UI (docs)
+# ================================
+COPY swagger/ /var/www/html/docs/
+
+# ================================
 # Permissões
 # ================================
 RUN chmod -R 755 /var/www/html

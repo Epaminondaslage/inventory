@@ -112,13 +112,24 @@ if (json_last_error() !== JSON_ERROR_NONE) {
 }
 
 
+// ================= HOSTNAME (FIX DOCKER) ========
+// Corrige problema de hostname dentro de container
+$hostHostname = @file_get_contents('/host/etc/hostname');
+
+if ($hostHostname !== false) {
+    $hostHostname = trim($hostHostname);
+} else {
+    $hostHostname = gethostname(); // fallback padrão
+}
+
+
 // ================= METADADOS ====================
 
 $json['_agent'] = [
-    "hostname"     => gethostname(),
+    "hostname"     => $hostHostname, // corrigido
     "execution_ms" => $executionTime,
     "timestamp"    => date("c"), // ISO 8601
-    "agent_version"=> "1.0.0"
+    "agent_version"=> "1.0.1"    // ajuste mínimo (legado corrigido)
 ];
 
 

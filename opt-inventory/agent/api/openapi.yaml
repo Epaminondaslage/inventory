@@ -1,0 +1,86 @@
+openapi: 3.0.3
+
+info:
+  title: Sentinela Inventory Agent API
+  description: API do agente de inventário distribuído do projeto Sentinela
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8090
+    description: Agent local
+
+paths:
+  /api/v1/inventory.php:
+    get:
+      summary: Coleta inventário do host
+      description: Executa o script inventory.sh e retorna dados do sistema
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Inventário coletado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      hostname:
+                        type: string
+                      host_ip:
+                        type: string
+                      timestamp:
+                        type: string
+                        format: date-time
+                      system:
+                        type: object
+                        properties:
+                          cpu_cores:
+                            type: integer
+                          mem_total_kb:
+                            type: integer
+                          uptime_seconds:
+                            type: number
+                      raw:
+                        type: object
+                        additionalProperties: true
+                      _agent:
+                        type: object
+                        properties:
+                          hostname:
+                            type: string
+                          execution_ms:
+                            type: integer
+                          timestamp:
+                            type: string
+                          agent_version:
+                            type: string
+                          api_version:
+                            type: string
+                  meta:
+                    type: object
+                    properties:
+                      version:
+                        type: string
+                        example: v1
+                      timestamp:
+                        type: integer
+
+        '401':
+          description: Falha de autenticação
+        '403':
+          description: Token inválido
+        '500':
+          description: Erro interno
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
