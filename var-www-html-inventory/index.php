@@ -1,6 +1,6 @@
 <?php
 
-$collectorUrl = "http://localhost/api/inventory_central/inventory_collector.php";
+$collectorUrl = "http://localhost:8091/inventory/api/inventory_central/inventory_collector.php";
 $response = @file_get_contents($collectorUrl);
 $data = json_decode($response, true);
 
@@ -64,6 +64,7 @@ window.onclick = function(event) {
                     <th>IP</th>
                     <th>Status</th>
                     <th>Hostname</th>
+                    <th>Host&nbsp;IP</th>
                     <th>Tempo (ms)</th>
                     <th>Detalhes</th>
                 </tr>
@@ -90,7 +91,8 @@ window.onclick = function(event) {
                         <?php endif; ?>
                     </td>
 
-                    <td><?= $d['hostname'] ?? '-' ?></td>
+                    <td><?= htmlspecialchars($d['hostname'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($d['host_ip'] ?? '-') ?></td>
                     <td><?= $server['response_ms'] ?? '-' ?></td>
 
                     <!-- DETALHES -->
@@ -103,7 +105,12 @@ window.onclick = function(event) {
                             <div id="raw<?= $i ?>" style="display:none;">
                                 <?php foreach ($d as $key => $value): ?>
                                     <h3><?= strtoupper($key) ?></h3>
-                                    <pre><?= htmlspecialchars($value) ?></pre>
+                                    <?php if (is_array($value)): ?>
+                                        <?php $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>
+                                        <pre><?= htmlspecialchars($json, ENT_QUOTES, 'UTF-8') ?></pre>
+                                    <?php else: ?>
+                                        <pre><?= htmlspecialchars($value) ?></pre>
+                                    <?php endif; ?>
                                 <?php endforeach; ?>
                             </div>
                         <?php else: ?>
