@@ -1,139 +1,123 @@
 <?php
+/*
+|--------------------------------------------------------------------------
+| Sentinela - Inventory Central Collector (ajustado para nova estrutura)
+|--------------------------------------------------------------------------
+| Servidor Central: 10.0.0.5
+|--------------------------------------------------------------------------
+| Padrão: /api/inventory_agent.php em todos os servidores na porta 8090
+|--------------------------------------------------------------------------
+*/
 
-$collectorUrl = "http://localhost:8091/inventory/api/inventory_central/inventory_collector.php";
-$response = @file_get_contents($collectorUrl);
-$data = json_decode($response, true);
+header('Content-Type: application/json');
 
-$servers = $data['servers'] ?? [];
-$offlineCount = 0;
+// ================= CONFIGURAÇÃO =================
 
-foreach ($servers as $s) {
-    if ($s['status'] !== 'online') {
-        $offlineCount++;
+$TOKEN = "sentinela_token_123";
+
+// Lista de IPs dos agentes; ajuste conforme necessário
+$SERVERS = [
+    "10.0.0.141",
+    "10.0.0.37",
+    "10.0.0.139",
+    "10.0.0.5",
+    "10.0.2.148"
+];
+
+$TIMEOUT = 8;
+
+// ================================================
+
+
+// ================= FUNÇÃO PRINCIPAL =================
+
+function consultarServidor($ip, $token, $timeout)
+{
+    // Endpoint padrão dos agents: porta 8090 e rota /api/inventory_agent.php
+    $url = "http://$ip:8090/api/inventory_agent.php";
+
+    $opts = [
+        "http" => [
+            "method"  => "GET",
+            "header"  => "Authorization: Bearer $token\r\n",
+            "timeout" => $timeout,
+            "ignore_errors" => true // importante para capturar HTTP 401/403/500
+        ]
+    ];
+
+    $context = stream_context_create($opts);
+
+    $inicio = microtime(true);
+    $response = @file_get_contents($url, false, $context);
+    $tempo = round((microtime(true) - $inicio) * 1000);
+
+    // ================= CAPTURAR STATUS HTTP =================
+    $httpCode = null;
+
+    if (isset($http_response_header[0])) {
+        preg_match('{HTTP/\S+\s(\d{3})}', $http_response_header[0], $match);
+        $httpCode = $match[1] ?? null;
     }
-}
-?>
 
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inventário de Servidores</title>
-<link rel="stylesheet" href="css/style.css">
-
-<script>
-function openModal(id) {
-    const content = document.getElementById(id).innerHTML;
-    document.getElementById("modalBody").innerHTML = content;
-    document.getElementById("modal").style.display = "flex";
-}
-
-function closeModal() {
-    document.getElementById("modal").style.display = "none";
-}
-
-window.onclick = function(event) {
-    const modal = document.getElementById("modal");
-    if (event.target === modal) {
-        modal.style.display = "none";
+    // ================= ERRO DE CONEXÃO =================
+    if ($response === false) {
+        return [
+            "ip"          => $ip,
+            "status"      => "offline",
+            "response_ms" => $tempo,
+            "error"       => "sem resposta HTTP"
+        ];
     }
-};
-</script>
-</head>
-<body>
 
-<div class="container">
+    // ================= ERRO HTTP =================
+    if ($httpCode !== '200') {
+        return [
+            "ip"          => $ip,
+            "status"      => "http_error",
+            "http_code"   => $httpCode,
+            "response_ms" => $tempo,
+            "raw"         => substr($response, 0, 200)
+        ];
+    }
 
-    <div class="header">
-        <img src="img/logo_inventory.jpg" alt="Logo Inventário" class="logo">
-        <h1>Inventário de Servidores</h1>
-        <button onclick="history.back()" class="btn">Voltar</button>
-    </div>
+    // ================= JSON =================
+    $json = json_decode($response, true);
 
-    <?php if ($offlineCount > 0): ?>
-        <div class="alert">
-            ⚠ <?= $offlineCount ?> servidor(es) fora do ar!
-        </div>
-    <?php endif; ?>
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return [
+            "ip"          => $ip,
+            "status"      => "error_json",
+            "response_ms" => $tempo,
+            "error"       => json_last_error_msg(),
+            "raw"         => substr($response, 0, 300)
+        ];
+    }
 
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>IP</th>
-                    <th>Status</th>
-                    <th>Hostname</th>
-                    <th>Host&nbsp;IP</th>
-                    <th>Tempo (ms)</th>
-                    <th>Detalhes</th>
-                </tr>
-            </thead>
-            <tbody>
+    // ================= OK =================
+    return [
+        "ip"          => $ip,
+        "status"      => "online",
+        "response_ms" => $tempo,
+        "data"        => $json
+    ];
+}
 
-            <?php foreach ($servers as $i => $server): ?>
-                <?php $d = $server['data'] ?? null; ?>
-                <tr class="<?= $server['status'] ?>">
-                    <td><?= $server['ip'] ?></td>
 
-                    <!-- STATUS COM BADGE E BOLINHA -->
-                    <td>
-                        <?php if ($server['status'] === 'online'): ?>
-                            <span class="badge badge-online">
-                                <span class="dot dot-online"></span>
-                                ONLINE
-                            </span>
-                        <?php else: ?>
-                            <span class="badge badge-offline">
-                                <span class="dot dot-offline"></span>
-                                OFFLINE
-                            </span>
-                        <?php endif; ?>
-                    </td>
+// ================= EXECUÇÃO =================
 
-                    <td><?= htmlspecialchars($d['hostname'] ?? '-') ?></td>
-                    <td><?= htmlspecialchars($d['host_ip'] ?? '-') ?></td>
-                    <td><?= $server['response_ms'] ?? '-' ?></td>
+$resultado = [];
 
-                    <!-- DETALHES -->
-                    <td>
-                        <?php if ($server['status'] === 'online'): ?>
-                            <button class="btn-small" onclick="openModal('raw<?= $i ?>')">
-                                Ver RAW
-                            </button>
+foreach ($SERVERS as $server) {
+    $resultado[] = consultarServidor($server, $TOKEN, $TIMEOUT);
+}
 
-                            <div id="raw<?= $i ?>" style="display:none;">
-                                <?php foreach ($d as $key => $value): ?>
-                                    <h3><?= strtoupper($key) ?></h3>
-                                    <?php if (is_array($value)): ?>
-                                        <?php $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>
-                                        <pre><?= htmlspecialchars($json, ENT_QUOTES, 'UTF-8') ?></pre>
-                                    <?php else: ?>
-                                        <pre><?= htmlspecialchars($value) ?></pre>
-                                    <?php endif; ?>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php else: ?>
-                            -
-                        <?php endif; ?>
-                    </td>
 
-                </tr>
-            <?php endforeach; ?>
+// ================= RESPOSTA FINAL =================
 
-            </tbody>
-        </table>
-    </div>
+echo json_encode([
+    "collector" => "10.0.0.5",
+    "timestamp" => date("Y-m-d H:i:s"),
+    "total"     => count($SERVERS),
+    "servers"   => $resultado
+], JSON_PRETTY_PRINT);
 
-</div>
-
-<!-- MODAL -->
-<div id="modal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal()">×</span>
-        <div id="modalBody"></div>
-    </div>
-</div>
-
-</body>
-</html>

@@ -1,6 +1,6 @@
 <?php
 
-$collectorUrl = "http://localhost:8091/inventory/api/inventory_central/inventory_collector.php";
+$collectorUrl = "http://localhost/inventory/api/inventory_central/inventory_collector.php";
 $response = @file_get_contents($collectorUrl);
 $data = json_decode($response, true);
 
