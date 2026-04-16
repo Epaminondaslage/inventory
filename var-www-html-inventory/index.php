@@ -24,6 +24,9 @@ $data = json_decode($response, true);
 // Lista de servidores retornados pelo collector
 $servers = $data['servers'] ?? [];
 
+// 🔥 NOVO (não remove nada)
+$last_update = $data['last_update'] ?? null;
+
 // Contador de offline
 $offlineCount = 0;
 
@@ -77,6 +80,12 @@ window.onclick = function(event) {
         <img src="img/logo_inventory.jpg" alt="Logo Inventário" class="logo">
         <h1>Sentinela - Inventário de Servidores</h1>
         <button onclick="history.back()" class="btn">Voltar</button>
+
+        <!-- 🔥 NOVO BLOCO -->
+        <p style="margin-top:5px; font-size:14px;">
+            Última atualização: 
+            <strong><?= $last_update ?? '--' ?></strong>
+        </p>
     </div>
 
     <!-- ================= ALERTA ================= -->

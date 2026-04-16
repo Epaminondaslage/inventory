@@ -3,6 +3,8 @@
 **Versão Atualizada (Docker + Collector Padronizado)**
 **Data de atualização: 2026-04**
 
+agora roda no servidor 10.0.0.139
+
 ---
 
 ## 1. Objetivo
@@ -39,7 +41,7 @@ O sistema foi projetado para:
             v
 +------------------------+
 |   COLETOR CENTRAL      |
-|   10.0.0.5             |
+|   10.0.0.139           |
 | inventory_collector.php|
 +-----------+------------+
             |
@@ -69,7 +71,7 @@ O sistema foi projetado para:
 
 ---
 
-### 🔹 Coletor Central (10.0.0.5)
+### 🔹 Coletor Central (10.0.0.139)
 
 ```
 /var/www/html/api/inventory_central/

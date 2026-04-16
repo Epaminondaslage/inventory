@@ -1,27 +1,28 @@
 <?php
 /*
 |--------------------------------------------------------------------------
-| Sentinela - Inventory Central Collector (ajustado para nova estrutura)
+| Sentinela - Inventory Central Collector
 |--------------------------------------------------------------------------
-| Servidor Central: 10.0.0.5
+| Servidor central: 10.0.0.139
 |--------------------------------------------------------------------------
-| Padrão: /api/inventory_agent.php em todos os servidores na porta 8090
-| Novo padrão: /api/v1/inventory.php (API versionada)
-|--------------------------------------------------------------------------
-| Este collector agora:
-| - Suporta API nova (v1)
-| - Mantém compatibilidade com API antiga
-| - Normaliza dados brutos (raw) para uso estruturado
+| Objetivos desta versão:
+| 1) Manter o frontend antigo funcionando sem alterações
+| 2) Continuar retornando o JSON completo da coleta
+| 3) Salvar os dados no MySQL em paralelo
+| 4) Não quebrar a resposta caso o banco falhe
+| 5) Suportar API nova (/api/v1/inventory.php) e antiga
 |--------------------------------------------------------------------------
 */
 
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+date_default_timezone_set('America/Sao_Paulo');
 
-// ================= CONFIGURAÇÃO =================
+// ======================================================================
+// CONFIGURAÇÃO GERAL
+// ======================================================================
 
 $TOKEN = "sentinela_token_123";
 
-// Lista de IPs dos agentes; ajuste conforme necessário
 $SERVERS = [
     "10.0.0.141",
     "10.0.0.37",
@@ -32,27 +33,46 @@ $SERVERS = [
 
 $TIMEOUT = 8;
 
-// ================================================
+// ----------------------------------------------------------------------
+// CONFIGURAÇÃO DO BANCO
+// ----------------------------------------------------------------------
+$DB_HOST = "10.0.0.139";
+$DB_NAME = "sentinela";
+$DB_USER = "inventory";         
+$DB_PASS = "Ep@m1n0nd@s";
 
 
-// ================= FUNÇÕES DE NORMALIZAÇÃO =================
-/*
-|--------------------------------------------------------------------------
-| Estas funções convertem o conteúdo textual do campo "raw"
-| em estruturas organizadas (arrays), facilitando:
-| - dashboards
-| - persistência em banco
-| - análise futura
-|--------------------------------------------------------------------------
-*/
+// ======================================================================
+// CONEXÃO MYSQL
+// ======================================================================
+
+function getPdo($host, $db, $user, $pass)
+{
+    try {
+        return new PDO(
+            "mysql:host={$host};dbname={$db};charset=utf8mb4",
+            $user,
+            $pass,
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]
+        );
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+
+// ======================================================================
+// NORMALIZAÇÃO
+// ======================================================================
 
 function parseMemory($text)
 {
-    $lines = explode("\n", trim($text));
+    $lines = explode("\n", trim((string)$text));
     if (count($lines) < 2) return null;
-
-    $parts = preg_split('/\s+/', $lines[1]);
-
+    $parts = preg_split('/\s+/', trim($lines[1]));
     return [
         "total" => $parts[1] ?? null,
         "used"  => $parts[2] ?? null,
@@ -62,13 +82,13 @@ function parseMemory($text)
 
 function parseDisks($text)
 {
-    $lines = explode("\n", trim($text));
+    $lines = explode("\n", trim((string)$text));
     $result = [];
 
     foreach ($lines as $i => $line) {
-        if ($i == 0 || trim($line) === "") continue;
+        if ($i === 0 || trim($line) === '') continue;
 
-        $cols = preg_split('/\s+/', $line);
+        $cols = preg_split('/\s+/', trim($line));
         $result[] = [
             "name" => $cols[0] ?? null,
             "size" => $cols[1] ?? null,
@@ -81,9 +101,10 @@ function parseDisks($text)
 
 function parseNetwork($text)
 {
-    if (!$text) return null;
+    $text = trim((string)$text);
+    if ($text === '') return null;
 
-    $parts = preg_split('/\s+/', trim($text));
+    $parts = preg_split('/\s+/', $text);
 
     return [
         "interface" => $parts[0] ?? null,
@@ -94,7 +115,7 @@ function parseNetwork($text)
 
 function normalizeRaw($raw)
 {
-    if (!$raw) return null;
+    if (!$raw || !is_array($raw)) return null;
 
     return [
         "memory"  => parseMemory($raw["memory"] ?? ""),
@@ -103,107 +124,236 @@ function normalizeRaw($raw)
     ];
 }
 
-// ==========================================================
 
-
-// ================= FUNÇÃO PRINCIPAL =================
-/*
-|--------------------------------------------------------------------------
-| consultarServidor()
-|--------------------------------------------------------------------------
-| Responsável por:
-| - Tentar acessar API nova (v1)
-| - Fazer fallback para API antiga
-| - Medir tempo de resposta
-| - Tratar erros HTTP e JSON
-| - Normalizar dados
-|--------------------------------------------------------------------------
-*/
+// ======================================================================
+// CONSULTA
+// ======================================================================
 
 function consultarServidor($ip, $token, $timeout)
 {
-    // Lista de endpoints (prioridade: novo → antigo)
     $endpoints = [
-        "http://$ip:8090/api/v1/inventory.php",
-        "http://$ip:8090/api/inventory_agent.php"
+        "http://{$ip}:8090/api/v1/inventory.php",
+        "http://{$ip}:8090/api/inventory_agent.php"
     ];
 
     foreach ($endpoints as $url) {
-
-        $opts = [
+        $context = stream_context_create([
             "http" => [
                 "method"  => "GET",
-                "header"  => "Authorization: Bearer $token\r\n",
-                "timeout" => $timeout,
-                "ignore_errors" => true // importante para capturar HTTP 401/403/500
+                "header"  => "Authorization: Bearer {$token}\r\n",
+                "timeout" => $timeout
             ]
-        ];
-
-        $context = stream_context_create($opts);
+        ]);
 
         $inicio = microtime(true);
         $response = @file_get_contents($url, false, $context);
         $tempo = round((microtime(true) - $inicio) * 1000);
 
-        // ================= ERRO DE CONEXÃO =================
-        if ($response === false) {
-            continue; // tenta próximo endpoint
-        }
+        if (!$response) continue;
 
-        // ================= JSON =================
         $json = json_decode($response, true);
+        if (!is_array($json)) continue;
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            continue; // tenta próximo endpoint
-        }
-
-        // ================= DETECTAR FORMATO =================
-        if (isset($json["data"])) {
-            // API nova (v1)
-            $data = $json["data"];
-            $api_version = $json["meta"]["version"] ?? "v1";
-        } else {
-            // API antiga (legacy)
-            $data = $json;
-            $api_version = "legacy";
-        }
-
-        // ================= NORMALIZAÇÃO =================
+        $data = $json["data"] ?? $json;
         $data["raw_parsed"] = normalizeRaw($data["raw"] ?? null);
 
-        // ================= SUCESSO =================
         return [
-            "ip"          => $ip,
-            "status"      => "online",
-            "api_version" => $api_version,
+            "ip" => $ip,
+            "status" => "online",
+            "api_version" => $json["meta"]["version"] ?? "legacy",
             "response_ms" => $tempo,
-            "data"        => $data
+            "data" => $data
         ];
     }
 
-    // ================= FALHA TOTAL =================
     return [
-        "ip"          => $ip,
-        "status"      => "offline",
-        "error"       => "nenhum endpoint respondeu"
+        "ip" => $ip,
+        "status" => "offline",
+        "error" => "nenhum endpoint respondeu"
     ];
 }
 
 
-// ================= EXECUÇÃO =================
+// ======================================================================
+// BANCO
+// ======================================================================
 
-$resultado = [];
+function salvarNoBanco($pdo, $server)
+{
+    if (!$pdo) return false;
 
-foreach ($SERVERS as $server) {
-    $resultado[] = consultarServidor($server, $TOKEN, $TIMEOUT);
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO server_inventory_logs (
+                server_ip, hostname, api_version, response_ms, status,
+                host_ip, agent_hostname, agent_version, agent_api_version,
+                agent_execution_ms, cpu_cores, mem_total_kb, uptime_seconds,
+                mem_total_str, mem_used_str, mem_free_str,
+                network_interface, network_status, network_ip,
+                raw_payload, raw_original, raw_parsed,
+                error_message, time_bucket
+            ) VALUES (
+                :server_ip, :hostname, :api_version, :response_ms, :status,
+                :host_ip, :agent_hostname, :agent_version, :agent_api_version,
+                :agent_execution_ms, :cpu_cores, :mem_total_kb, :uptime_seconds,
+                :mem_total_str, :mem_used_str, :mem_free_str,
+                :network_interface, :network_status, :network_ip,
+                :raw_payload, :raw_original, :raw_parsed,
+                :error_message, :time_bucket
+            )
+            ON DUPLICATE KEY UPDATE status = VALUES(status)
+        ");
+
+        $timeBucket = date('Y-m-d H:i:00');
+
+        if (($server["status"] ?? "") !== "online") {
+            return $stmt->execute([
+                ':server_ip' => $server["ip"] ?? null,
+                ':status' => 'offline',
+                ':error_message' => $server["error"] ?? 'erro',
+                ':time_bucket' => $timeBucket
+            ]);
+        }
+
+        $data = $server["data"] ?? [];
+
+        return $stmt->execute([
+            ':server_ip' => $server["ip"] ?? null,
+            ':hostname' => $data["hostname"] ?? null,
+            ':api_version' => $server["api_version"] ?? null,
+            ':response_ms' => $server["response_ms"] ?? null,
+            ':status' => 'online',
+            ':raw_payload' => json_encode($data),
+            ':time_bucket' => $timeBucket
+        ]);
+
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 
-// ================= RESPOSTA FINAL =================
+// ======================================================================
+// MÉTRICAS PARA GRAFANA
+// ======================================================================
+
+function salvarMetricas($pdo, $server)
+{
+    if (!$pdo) return false;
+
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO server_metrics_full (
+                server_ip, hostname, time, status,
+                cpu_cores, mem_total_kb, mem_used_kb, mem_free_kb, mem_used_percent,
+                uptime_seconds, response_ms, api_version,
+                disks_json, network_json, raw_json
+            ) VALUES (
+                :server_ip, :hostname, :time, :status,
+                :cpu_cores, :mem_total_kb, :mem_used_kb, :mem_free_kb, :mem_used_percent,
+                :uptime_seconds, :response_ms, :api_version,
+                :disks_json, :network_json, :raw_json
+            )
+            ON DUPLICATE KEY UPDATE
+                status = VALUES(status),
+                mem_used_kb = VALUES(mem_used_kb),
+                mem_free_kb = VALUES(mem_free_kb),
+                mem_used_percent = VALUES(mem_used_percent),
+                response_ms = VALUES(response_ms)
+        ");
+
+        $data = $server["data"] ?? [];
+        $parsed = $data["raw_parsed"] ?? [];
+        $mem = $parsed["memory"] ?? null;
+
+        $memTotal = isset($mem["total"]) ? intval($mem["total"]) : null;
+        $memUsed  = isset($mem["used"]) ? intval($mem["used"]) : null;
+        $memFree  = isset($mem["free"]) ? intval($mem["free"]) : null;
+        $memPercent = ($memTotal > 0) ? round(($memUsed / $memTotal) * 100, 2) : null;
+
+        return $stmt->execute([
+            ':server_ip' => $server["ip"] ?? null,
+            ':hostname' => $data["hostname"] ?? null,
+            ':time' => date('Y-m-d H:i:s'),
+            ':status' => $server["status"] ?? null,
+            ':cpu_cores' => $data["system"]["cpu_cores"] ?? null,
+            ':mem_total_kb' => $memTotal,
+            ':mem_used_kb' => $memUsed,
+            ':mem_free_kb' => $memFree,
+            ':mem_used_percent' => $memPercent,
+            ':uptime_seconds' => $data["system"]["uptime"] ?? null,
+            ':response_ms' => $server["response_ms"] ?? null,
+            ':api_version' => $server["api_version"] ?? null,
+            ':disks_json' => json_encode($parsed["disks"] ?? []),
+            ':network_json' => json_encode($parsed["network"] ?? null),
+            ':raw_json' => json_encode($data)
+        ]);
+
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+
+// ======================================================================
+// EXECUÇÃO
+// ======================================================================
+
+$pdo = getPdo($DB_HOST, $DB_NAME, $DB_USER, $DB_PASS);
+
+$resultado = [];
+$db_saved_count = 0;
+
+foreach ($SERVERS as $serverIp) {
+    $res = consultarServidor($serverIp, $TOKEN, $TIMEOUT);
+
+    $resultado[] = $res;
+
+    if (($res["status"] ?? "") === "online") {
+        salvarMetricas($pdo, $res);
+    }
+
+    if (salvarNoBanco($pdo, $res)) {
+        $db_saved_count++;
+    }
+}
+
+
+// ======================================================================
+// LAST UPDATE (BANCO)
+// ======================================================================
+
+$last_update = null;
+
+if ($pdo) {
+    try {
+        $stmt = $pdo->query("
+            SELECT DATE_FORMAT(
+                CONVERT_TZ(MAX(collected_at), '+00:00', '-03:00'),
+                '%d-%m-%Y %H:%i:%s'
+            ) as last_update
+            FROM server_inventory_logs
+        ");
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $last_update = $row['last_update'] ?? null;
+    } catch (Throwable $e) {
+        $last_update = null;
+    }
+}
+
+
+// ======================================================================
+// RESPOSTA
+// ======================================================================
 
 echo json_encode([
-    "collector" => "10.0.0.5",
-    "timestamp" => date("Y-m-d H:i:s"),
-    "total"     => count($SERVERS),
-    "servers"   => $resultado
+    "collector"  => "10.0.0.139",
+    "timestamp"  => date("Y-m-d H:i:s"),
+    "total"      => count($SERVERS),
+    "servers"    => $resultado,
+    "last_update"=> $last_update,
+    "db"         => [
+        "enabled" => $pdo ? true : false,
+        "saved"   => $db_saved_count
+    ]
 ], JSON_PRETTY_PRINT);
