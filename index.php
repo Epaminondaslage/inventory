@@ -127,7 +127,8 @@ body{display:flex;flex-direction:column;min-height:100vh}
 
 /* Container cards grid */
 .ctr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-bottom:20px}
-.ctr-card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:12px 14px}
+.ctr-card{background:var(--bg);border:1px solid var(--bd);}
+.ctr-card.stopped{background:#fff5f5;border-color:#ffcdd2;border-radius:var(--r);padding:12px 14px}
 .ctr-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .ctr-head svg{color:var(--muted);flex-shrink:0}
 .ctr-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -468,7 +469,7 @@ function renderPanel(srv){
       var stClass=isUp?(isHealthy?'up':'up'):'stopped';
       var stLabel=isUp?(isHealthy?'Ativo (healthy)':'Ativo'):'Parado';
       var ports=(d.mapped_ports||[]).map(function(p){return '<span class="ctr-port">'+p+(SVC[p]?' '+SVC[p]:'')+'</span>';}).join('');
-      html+='<div class="ctr-card">'
+      html+='<div class="ctr-card '+(isUp?'':'stopped')+'">'
         +'<div class="ctr-head">'+docker_icon(d.name||d.image||'')+'<span class="ctr-name">'+esc(d.name||'')+'</span></div>'
         +'<div class="ctr-status '+stClass+'"><span class="dot"></span>'+stLabel+'</div>'
         +'<div class="ctr-img">'+esc((d.image||'').split('/').pop())+'</div>'
