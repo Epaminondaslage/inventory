@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
 # ================================
-# Instala dependências do sistema
+# Dependências do sistema
 # ================================
 RUN apt-get update && apt-get install -y \
     procps \
@@ -15,29 +15,25 @@ RUN apt-get update && apt-get install -y \
     dnsutils \
     lsb-release \
     ca-certificates \
-    systemd \
     docker.io \
+    mosquitto-clients \
     && rm -rf /var/lib/apt/lists/*
 
 # ================================
-# Ajustes do Apache
+# Apache — muda porta para 8090
+# network_mode:host compartilha a rede do host,
+# então o Apache não pode usar a porta 80 (já usada pelo host)
 # ================================
+RUN echo "Listen 8090" > /etc/apache2/ports.conf
+RUN sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8090>/' /etc/apache2/sites-enabled/000-default.conf
 RUN a2enmod rewrite
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 # ================================
-# Copia API
+# Copia arquivos
 # ================================
-COPY api/ /var/www/html/api/
-
-# ================================
-# Copia OpenAPI (para Swagger)
-# ================================
+COPY api/     /var/www/html/api/
 COPY api/openapi.yaml /var/www/html/openapi.yaml
-
-# ================================
-# Copia Swagger UI (docs)
-# ================================
 COPY swagger/ /var/www/html/docs/
 
 # ================================
@@ -46,13 +42,14 @@ COPY swagger/ /var/www/html/docs/
 RUN chmod -R 755 /var/www/html
 
 # ================================
-# Diretórios necessários (runtime)
+# Acesso ao Docker socket
+# GID 127 = grupo docker do host (ajuste se diferente)
 # ================================
-RUN mkdir -p /var/run/apache2 \
-    /var/lock \
-    /tmp
+RUN groupadd -f -g 143 dockerhost && usermod -aG dockerhost www-data
 
 # ================================
-# Porta padrão
+# Diretórios runtime
 # ================================
-EXPOSE 80
+RUN mkdir -p /var/run/apache2 /var/lock /tmp
+
+EXPOSE 8090

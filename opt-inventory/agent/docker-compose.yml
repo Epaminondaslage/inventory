@@ -1,18 +1,24 @@
-
+# =============================================================
+# docker-compose.yml — Inventory Agent + Swagger UI
+# Projeto: Sentinela — Sítio Pé de Serra
+#
+# network_mode: host — compartilha namespace de rede do host
+# permitindo que o agente leia /proc/net/tcp do host e
+# colete todas as portas abertas corretamente.
+# =============================================================
 
 services:
+
   inventory-agent:
     build: .
     container_name: inventory-agent
 
-    # Expose the agent on port 8090 of the host while keeping Apache on port 80 inside the container
-    ports:
-      - "8090:80"
+    # Compartilha namespace de rede do host
+    # Permite leitura correta de /proc/net/tcp e /proc/net/tcp6
+    network_mode: host
 
-    # Always restart the agent if it exits
     restart: always
 
-    # Mount host resources read-only for accurate inventory collection
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -21,48 +27,38 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./scripts:/scripts:ro
 
-    # Environment variables used by the inventory script to locate host paths
     environment:
       - HOST_PROC=/host/proc
       - HOST_SYS=/host/sys
 
-    # Enable read-only root filesystem for security
     read_only: true
 
-    # Provide temporary writable locations required by Apache and the OS
     tmpfs:
       - /tmp
       - /var/run
       - /var/run/apache2
       - /var/lock
 
-    # Drop additional privileges in the container
     security_opt:
       - no-new-privileges:true
 
-    # Health check to verify the agent's HTTP endpoint is responding
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS -H 'Authorization: Bearer sentinela_token_123' http://localhost/api/inventory_agent.php > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS -H 'Authorization: Bearer sentinela_token_123' http://localhost:8090/api/inventory_agent.php > /dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-
 
   swagger-ui:
     image: swaggerapi/swagger-ui:latest
     container_name: sentinela-swagger
 
-    # Expose Swagger UI on port 8091
     ports:
-      - "8091:8080"
+      - "8093:8080"
 
-    # Always restart Swagger UI if it exits
     restart: always
 
-    # Load OpenAPI specification from local file
     environment:
       - SWAGGER_JSON=/app/openapi.yaml
 
-    # Mount OpenAPI spec into container
     volumes:
       - ./api/openapi.yaml:/app/openapi.yaml:ro
